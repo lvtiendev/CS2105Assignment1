@@ -3,10 +3,9 @@ import java.util.*;
 import java.net.*;
 
 public class TCPServer {
-
-	/**
-	 * @param args
-	 */
+	
+	public static String folderPath = "E:/WorkSpace/CS2105Assignment1/a1";
+	
 	public static void main(String[] args) throws Exception{
 		ServerSocket serverSocket = new ServerSocket(9000);
 		while (true) {
@@ -23,11 +22,11 @@ public class TCPServer {
 			String fields[] = inputString.split(" ");
 			if (fields[0].equals("GET")) {
 				String fileName = fields[1];
-				fileName = "/Users/leviettien/Developer/Java/CS2105" + fileName;
+				fileName = folderPath + fileName;
 				while (inputString.compareTo("") != 0 ) {
 					inputString = br.readLine();
 				}
-
+				
 				File f = new File(fileName);
 				if (f.canRead()) {
 					int size = (int)f.length();
@@ -40,7 +39,10 @@ public class TCPServer {
 						output.writeBytes("Content-Type: text/html\r\n");
 					} else if (fileName.endsWith("jpg")) {
 						output.writeBytes("Content-Type: image/jpeg\r\n");
+					} else if (fileName.endsWith("pl")) {
+						// RUN SCRIPT
 					}
+						
 					output.writeBytes("\r\n");
 					output.write(buffer, 0, size);
 				} else {
