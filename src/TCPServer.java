@@ -8,7 +8,7 @@ public class TCPServer {
 	public static String folderPath = "/Users/leviettien/a1";
 	// public static String folderPath = "/home/a008/a0088447/a1";
 
-	public static final int socketNumber = 2102;
+	public static int socketNumber = 2102;
 
 	public static ServerSocket serverSocket;
 	public static Socket clientSocket;
@@ -16,8 +16,13 @@ public class TCPServer {
 	public static BufferedReader isbr;
 	public static OutputStream os;
 	public static DataOutputStream output;
-
-
+	
+	public static String contentType;
+	public static String contentString;
+	public static String queryString;
+	public static String contentLengthString;
+	public static String requestMethod;
+	
 	public static void handleStaticFile(String fileName) {
 		try {
 			String filePath = folderPath + fileName;
@@ -74,11 +79,11 @@ public class TCPServer {
 		String filePath = folderPath + fileName;
 		System.out.println(fileName);
 		
-		String queryString = "";
+		requestMethod = "REQUEST_METHOD=GET";
+		queryString = "";
 		if (getQueryString(fields[1]) != "") {
 			queryString = "QUERY_STRING=" + getQueryString(fields[1]);
 		}
-		String requestMethod = "REQUEST_METHOD=GET";
 		
 		// Read the rest of header
 		String inputString = firstLine;
@@ -115,41 +120,18 @@ public class TCPServer {
 
 	public static void handlePOSTRequest(String firstLine) throws Exception {
 		String fields[] = firstLine.split(" ");
-		String fileName = fields[1];
+		String fileName = getFileNameFromString(fields[1]);
 		String filePath = folderPath + fileName;
 		
-		String contentType = "";
-
-		int contentLength = -1;
-		while (true) {
-			final String line = isbr.readLine();
-			final String contentLengthStr = "Content-Length: ";
-			if (line.startsWith(contentLengthStr)) {
-				contentLength = Integer.parseInt(line
-						.substring(contentLengthStr.length()));
-			} else if (line.startsWith("Content-Type:")) {
-				String contentLengthFields[] = line.split(" ");
-				contentType = "CONTENT_TYPE=" + contentLengthFields[1];
-			}
-
-			if (line.length() == 0) {
-				break;
-			}
-		}
-
-		// We should actually use InputStream here, but let's assume bytes map
-		// to characters
-		final char[] content = new char[contentLength];
-		isbr.read(content);
-		String contentString = new String(content);
-
-		String requestMethod = "REQUEST_METHOD=POST";
-		String contentLengthString = "CONTENT_LENGTH="
-				+ contentLength;
+		readAllHeader();
+		
+		contentType = "CONTENT_TYPE=" + contentType;
+		requestMethod = "REQUEST_METHOD=POST";
+		contentLengthString = "CONTENT_LENGTH=" + contentLengthString;
+		
 		String env = requestMethod + " " + contentType
 				+ " " + contentLengthString;
 
-		System.out.println(env);
 		Process p = Runtime.getRuntime().exec(
 				"/usr/bin/env " + env + " /usr/bin/perl " + filePath);
 
@@ -177,14 +159,17 @@ public class TCPServer {
 		return tokens[tokens.length - 1];
 	}
 
-	public static String getBodyRequest() throws Exception {
+	public static void readAllHeader() throws Exception {
 		int contentLength = -1;
+		String contentLengthStr = "Content-Length: ";
 		while (true) {
 			final String line = isbr.readLine();
-			final String contentLengthStr = "Content-Length: ";
 			if (line.startsWith(contentLengthStr)) {
 				contentLength = Integer.parseInt(line
 						.substring(contentLengthStr.length()));
+			} else if (line.startsWith("Content-Type:")) {
+				String contentLengthFields[] = line.split(" ");
+				contentType = contentLengthFields[1];
 			}
 
 			if (line.length() == 0) {
@@ -192,48 +177,60 @@ public class TCPServer {
 			}
 		}
 
-		// We should actually use InputStream here, but let's assume bytes map
-		// to characters
-		final char[] content = new char[contentLength];
-		isbr.read(content);
-		String contentString = new String(content);
-		return contentString;
+		
+		if (contentLength > 0) {
+			final char[] content = new char[contentLength];
+			isbr.read(content);
+			contentString = new String(content);
+			contentLengthString = Integer.toString(contentLength);
+		}
+	}
+	
+	public static void prepare() {
+		contentString = "";
+		contentLengthString = "";
+		contentType = "";
+		queryString = "";
+		requestMethod = "";
 	}
 
 	public static void main(String[] args) throws Exception {
-		int firstArg;
 		if (args.length > 0) {
-			try {
-				firstArg = Integer.parseInt(args[0]);
-				serverSocket = new ServerSocket(firstArg);
-				while (true) {
-					System.out.println("waiting for new connection");
-					clientSocket = serverSocket.accept();
-					System.out.println("connection accepted");
+			socketNumber = Integer.parseInt(args[0]);
+		}
+		
+		serverSocket = new ServerSocket(socketNumber);
+		
+		try {
+			while (true) {
+				prepare();
+				System.out.println("waiting for new connection");
+				clientSocket = serverSocket.accept();
+				System.out.println("connection accepted");
 
-					is = clientSocket.getInputStream();
-					isbr = new BufferedReader(new InputStreamReader(is));
+				is = clientSocket.getInputStream();
+				isbr = new BufferedReader(new InputStreamReader(is));
 
-					os = clientSocket.getOutputStream();
-					output = new DataOutputStream(os);
+				os = clientSocket.getOutputStream();
+				output = new DataOutputStream(os);
 
-					String inputString;
-					inputString = isbr.readLine();
-					String fields[] = inputString.split(" ");
+				String inputString;
+				inputString = isbr.readLine();
+				String fields[] = inputString.split(" ");
 
-					if (fields[0].equals("GET")) {
-						handleGETRequest(inputString);
-					} else if (fields[0].equals("POST")) {
-						handlePOSTRequest(inputString);
-					}
-
-					clientSocket.close();
-					System.out.println("connection closed");
+				if (fields[0].equals("GET")) {
+					handleGETRequest(inputString);
+				} else if (fields[0].equals("POST")) {
+					handlePOSTRequest(inputString);
 				}
-			} catch (NumberFormatException e) {
-				System.err.println("Argument" + " must be an integer");
-				System.exit(1);
+
+				os.flush();
+				clientSocket.close();
+				System.out.println("connection closed");
 			}
+		} catch (NumberFormatException e) {
+			System.err.println("Argument" + " must be an integer");
+			System.exit(1);
 		}
 	}
 
