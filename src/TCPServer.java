@@ -6,7 +6,7 @@ public class TCPServer {
 
 	// public static String folderPath = "/Users/victor/a1";
 	public static String folderPath = "/Users/leviettien/a1";
-//	public static String folderPath = "/home/a008/a0088447/a1";
+	// public static String folderPath = "/home/a008/a0088447/a1";
 
 	public static final int socketNumber = 2102;
 
@@ -46,8 +46,14 @@ public class TCPServer {
 				output.writeBytes("\r\n");
 				output.write(buffer, 0, size);
 			} else if (fileName.endsWith("pl")) {
-				Process p = Runtime.getRuntime().exec(
-						"/usr/bin/perl " + filePath);
+				String requestMethod = "REQUEST_METHOD=GET";
+				String queryString = "QUERY_STRING=\"\"";
+				String contentType = "";
+				String contentLengthString = "";
+				String env = requestMethod + " " + queryString + " " + contentType
+						+ " " + contentLengthString;
+				Process p = Runtime.getRuntime().exec("/usr/bin/env " + env +
+						" /usr/bin/perl " + filePath);
 				try {
 					BufferedReader br = new BufferedReader(
 							new InputStreamReader(p.getInputStream()));
@@ -70,7 +76,7 @@ public class TCPServer {
 		String fields[] = firstLine.split(" ");
 		String fileName = fields[1];
 		String filePath = folderPath + fileName;
-		
+
 		int contentLength = -1;
 		while (true) {
 			final String line = isbr.readLine();
@@ -88,38 +94,39 @@ public class TCPServer {
 		// We should actually use InputStream here, but let's assume bytes map
 		// to characters
 		final char[] content = new char[contentLength];
+		System.out.println("CONTENT LENGTH + " + contentLength);
 		isbr.read(content);
 		String contentString = new String(content);
-		System.out.println(contentString);
-		if (getAction(contentString).equals("add")) {
+		String requestMethod = "REQUEST_METHOD=POST";
+		String queryString = "QUERY_STRING=" + contentString;
+		String contentType = "CONTENT_TYPE=application/x-www-form-urlencoded";
+		String contentLengthString = "CONTENT_LENGTH=" + contentLength;
+		String env = requestMethod + " " + queryString + " " + contentType
+				+ " " + contentLengthString;
+//		String env = requestMethod;
+		System.out.println(env);
+		Process p = Runtime.getRuntime().exec(
+				"/usr/bin/env " + env + " /usr/bin/perl " + filePath);
+		try {
 			output.writeBytes("HTTP/1.0 200 OK\r\n");
-			System.out.println(getDescription(contentString));
-			String newTask = URLDecoder.decode(getDescription(contentString), "UTF-8");
-			Process q = Runtime.getRuntime().exec(
-					"/usr/bin/env " + "description=" + newTask + " action=add " + filePath);
-			Process p = Runtime.getRuntime().exec(
-					"/usr/bin/perl " + filePath);
-			try {
-				BufferedReader br = new BufferedReader(
-						new InputStreamReader(p.getInputStream()));
-				String line;
-				while ((line = br.readLine()) != null) {
-					output.writeBytes(line + "\r\n");
-					System.out.println(line);
-				}
-			} catch (Exception e) {
-				System.out.println("Command failed!");
+			BufferedReader br = new BufferedReader(new InputStreamReader(
+					p.getInputStream()));
+			String line;
+			while ((line = br.readLine()) != null) {
+				output.writeBytes(line + "\r\n");
+				System.out.println(line);
 			}
-			output.writeBytes("\r\n");
-		} else {
+		} catch (Exception e) {
+			System.out.println("Command failed!");
 		}
+		output.writeBytes("\r\n");
 	}
-	
+
 	public static String getAction(String inputString) {
 		String tokens[] = inputString.split("action=");
 		return tokens[tokens.length - 1];
 	}
-	
+
 	public static String getDescription(String inputString) {
 		String descriptionString = "description=";
 		if (inputString.startsWith(descriptionString)) {
@@ -132,30 +139,39 @@ public class TCPServer {
 	}
 
 	public static void main(String[] args) throws Exception {
-		serverSocket = new ServerSocket(socketNumber);
-		while (true) {
-			System.out.println("waiting for new connection");
-			clientSocket = serverSocket.accept();
-			System.out.println("connection accepted");
+		int firstArg;
+		if (args.length > 0) {
+		    try {
+		        firstArg = Integer.parseInt(args[0]);
+		        serverSocket = new ServerSocket(firstArg);
+				while (true) {
+					System.out.println("waiting for new connection");
+					clientSocket = serverSocket.accept();
+					System.out.println("connection accepted");
 
-			is = clientSocket.getInputStream();
-			isbr = new BufferedReader(new InputStreamReader(is));
+					is = clientSocket.getInputStream();
+					isbr = new BufferedReader(new InputStreamReader(is));
 
-			os = clientSocket.getOutputStream();
-			output = new DataOutputStream(os);
+					os = clientSocket.getOutputStream();
+					output = new DataOutputStream(os);
 
-			String inputString;
-			inputString = isbr.readLine();
-			String fields[] = inputString.split(" ");
+					String inputString;
+					inputString = isbr.readLine();
+					String fields[] = inputString.split(" ");
 
-			if (fields[0].equals("GET")) {
-				handleGETRequest(inputString);
-			} else if (fields[0].equals("POST")) {
-				handlePOSTRequest(inputString);
-			}
-			
-			clientSocket.close();
-			System.out.println("connection closed");
+					if (fields[0].equals("GET")) {
+						handleGETRequest(inputString);
+					} else if (fields[0].equals("POST")) {
+						handlePOSTRequest(inputString);
+					}
+
+					clientSocket.close();
+					System.out.println("connection closed");
+				}
+		    } catch (NumberFormatException e) {
+		        System.err.println("Argument" + " must be an integer");
+		        System.exit(1);
+		    }
 		}
 	}
 
