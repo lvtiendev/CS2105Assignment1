@@ -2,7 +2,7 @@ import java.io.*;
 import java.util.*;
 import java.net.*;
 
-public class TCPServer {
+public class WebServer {
 
 	// public static String folderPath = "/Users/victor/a1";
 	public static String folderPath = "/Users/leviettien/a1";
