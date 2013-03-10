@@ -3,10 +3,8 @@ import java.util.*;
 import java.net.*;
 
 public class WebServer {
-
-	// public static String folderPath = "/Users/victor/a1";
-	public static String folderPath = "/Users/leviettien/a1";
-	// public static String folderPath = "/home/a008/a0088447/a1";
+	
+	public static final String folderPath = System.getProperty("user.dir") + "/a1";
 
 	public static int socketNumber = 2102;
 
