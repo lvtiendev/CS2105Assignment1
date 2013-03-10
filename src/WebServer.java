@@ -3,9 +3,7 @@ import java.util.*;
 import java.net.*;
 
 public class WebServer {
-	
-    public static final String folderPath = "/home/a008/a0088447/a1";
-
+    public static final String folderPath = System.getProperty( "user.home" ) + "/a1";
 	public static int socketNumber = 2102;
 
 	public static ServerSocket serverSocket;
@@ -76,6 +74,7 @@ public class WebServer {
 		String fileName = getFileNameFromString(fields[1]);
 		String filePath = folderPath + fileName;
 		System.out.println(fileName);
+        System.out.println(filePath);
 		
 		requestMethod = "REQUEST_METHOD=GET";
 		queryString = "";
